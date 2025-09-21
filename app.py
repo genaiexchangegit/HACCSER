@@ -1,17 +1,29 @@
 from flask import Flask, render_template, request, jsonify
 import json
-import pyautogui
 import os
 import time
 import logging
 from datetime import datetime
-from PIL import Image
+
+# Conditional PyAutoGUI import for headless environments
+try:
+    # Check if we're in a headless environment before importing PyAutoGUI
+    if os.environ.get('RENDER') or not os.environ.get('DISPLAY'):
+        print("Headless environment detected - PyAutoGUI disabled")
+        pyautogui = None
+    else:
+        import pyautogui
+        from PIL import Image
+except ImportError:
+    print("PyAutoGUI not available - running in headless mode")
+    pyautogui = None
 
 app = Flask(__name__)
 
-# Configure PyAutoGUI
-pyautogui.FAILSAFE = True  # Move mouse to top-left corner to stop
-pyautogui.PAUSE = 0.5  # Pause between actions
+# Configure PyAutoGUI (only if available)
+if pyautogui:
+    pyautogui.FAILSAFE = True  # Move mouse to top-left corner to stop
+    pyautogui.PAUSE = 0.5  # Pause between actions
 
 # Hardcoded image paths (you can modify these)
 IMAGE_PATHS = {
@@ -126,10 +138,10 @@ def handle_console_logs():
 def background_image_detection():
     """Background function to continuously detect and click images"""
     try:
-        # Check if we're in a headless environment (like Render)
-        if os.environ.get('RENDER') or not os.environ.get('DISPLAY'):
-            print("Running in headless environment - PyAutoGUI disabled")
-            console_logger.info("Running in headless environment - PyAutoGUI disabled")
+        # Check if PyAutoGUI is available
+        if not pyautogui:
+            print("PyAutoGUI not available - background detection disabled")
+            console_logger.info("PyAutoGUI not available - background detection disabled")
             return
             
         while True:
@@ -157,16 +169,18 @@ def background_image_detection():
         print(f"Background image detection error: {str(e)}")
         console_logger.error(f"Background PyAutoGUI error: {str(e)}")
 
-# Start background PyAutoGUI in a separate thread (only if not in headless environment)
+# Start background PyAutoGUI in a separate thread (only if PyAutoGUI is available)
 import threading
-if not os.environ.get('RENDER'):
+if pyautogui:
     background_thread = threading.Thread(target=background_image_detection, daemon=True)
     background_thread.start()
+    print("PyAutoGUI background thread started")
 else:
-    print("Render environment detected - PyAutoGUI background thread disabled")
+    print("PyAutoGUI not available - background thread disabled")
 
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
     app.run(debug=debug, host='0.0.0.0', port=port)
+    
