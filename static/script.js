@@ -1,0 +1,284 @@
+// Permission handling JavaScript
+class PermissionManager {
+    constructor() {
+        this.permissions = {
+            location: 'unknown',
+            clipboard: 'unknown',
+            camera: 'unknown'
+        };
+        this.initializeEventListeners();
+        this.updatePermissionStatus();
+    }
+
+    initializeEventListeners() {
+        document.getElementById('locationBtn').addEventListener('click', () => this.requestLocation());
+        document.getElementById('clipboardBtn').addEventListener('click', () => this.requestClipboard());
+        document.getElementById('cameraBtn').addEventListener('click', () => this.requestCamera());
+    }
+
+    async requestLocation() {
+        const btn = document.getElementById('locationBtn');
+        const result = document.getElementById('locationResult');
+        
+        btn.disabled = true;
+        btn.textContent = 'Requesting...';
+        result.innerHTML = 'Requesting location permission...';
+        result.className = 'result info';
+
+        try {
+            if (!navigator.geolocation) {
+                throw new Error('Geolocation is not supported by this browser.');
+            }
+
+            // Request location permission
+            const position = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                });
+            });
+
+            this.permissions.location = 'granted';
+            
+            const locationData = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                timestamp: new Date().toISOString()
+            };
+
+            result.innerHTML = `
+                <strong>✅ Location Access Granted!</strong><br>
+                Latitude: ${locationData.latitude.toFixed(6)}<br>
+                Longitude: ${locationData.longitude.toFixed(6)}<br>
+                Accuracy: ${locationData.accuracy} meters<br>
+                Time: ${new Date(locationData.timestamp).toLocaleString()}
+            `;
+            result.className = 'result success';
+
+            // Send location data to server
+            await this.sendToServer('/api/location', locationData);
+
+        } catch (error) {
+            this.permissions.location = 'denied';
+            result.innerHTML = `<strong>❌ Location Access Denied:</strong><br>${error.message}`;
+            result.className = 'result error';
+            console.error('Location error:', error);
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Request Location';
+        this.updatePermissionStatus();
+    }
+
+    async requestClipboard() {
+        const btn = document.getElementById('clipboardBtn');
+        const result = document.getElementById('clipboardResult');
+        
+        btn.disabled = true;
+        btn.textContent = 'Requesting...';
+        result.innerHTML = 'Requesting clipboard permission...';
+        result.className = 'result info';
+
+        try {
+            // Check if clipboard API is available
+            if (!navigator.clipboard) {
+                throw new Error('Clipboard API is not supported by this browser.');
+            }
+
+            // Try to read clipboard content
+            const clipboardText = await navigator.clipboard.readText();
+            
+            this.permissions.clipboard = 'granted';
+            
+            result.innerHTML = `
+                <strong>✅ Clipboard Access Granted!</strong><br>
+                Current clipboard content: "${clipboardText.substring(0, 100)}${clipboardText.length > 100 ? '...' : ''}"
+            `;
+            result.className = 'result success';
+
+            // Test writing to clipboard
+            const testText = `Clipboard test - ${new Date().toLocaleString()}`;
+            await navigator.clipboard.writeText(testText);
+            
+            result.innerHTML += `<br><br><strong>✅ Write Test Successful!</strong><br>Wrote: "${testText}"`;
+
+        } catch (error) {
+            this.permissions.clipboard = 'denied';
+            result.innerHTML = `<strong>❌ Clipboard Access Denied:</strong><br>${error.message}`;
+            result.className = 'result error';
+            console.error('Clipboard error:', error);
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Request Clipboard Access';
+        this.updatePermissionStatus();
+    }
+
+    async requestCamera() {
+        const btn = document.getElementById('cameraBtn');
+        const result = document.getElementById('cameraResult');
+        const video = document.getElementById('video');
+        
+        btn.disabled = true;
+        btn.textContent = 'Requesting...';
+        result.innerHTML = 'Requesting camera permission...';
+        result.className = 'result info';
+
+        try {
+            // Check if getUserMedia is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('Camera API is not supported by this browser.');
+            }
+
+            // Request camera access
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user'
+                },
+                audio: false
+            });
+
+            this.permissions.camera = 'granted';
+            
+            // Display video stream
+            video.srcObject = stream;
+            video.style.display = 'block';
+            
+            result.innerHTML = `
+                <strong>✅ Camera Access Granted!</strong><br>
+                Video stream started successfully.<br>
+                Resolution: ${stream.getVideoTracks()[0].getSettings().width}x${stream.getVideoTracks()[0].getSettings().height}
+            `;
+            result.className = 'result success';
+
+            // Get camera capabilities
+            const track = stream.getVideoTracks()[0];
+            const capabilities = track.getCapabilities();
+            console.log('Camera capabilities:', capabilities);
+
+        } catch (error) {
+            this.permissions.camera = 'denied';
+            result.innerHTML = `<strong>❌ Camera Access Denied:</strong><br>${error.message}`;
+            result.className = 'result error';
+            console.error('Camera error:', error);
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Request Camera Access';
+        this.updatePermissionStatus();
+    }
+
+    updatePermissionStatus() {
+        const statusContainer = document.getElementById('permissionStatus');
+        statusContainer.innerHTML = '';
+
+        Object.entries(this.permissions).forEach(([permission, status]) => {
+            const statusItem = document.createElement('div');
+            statusItem.className = `status-item ${status}`;
+            
+            const icon = this.getStatusIcon(status);
+            const label = this.getPermissionLabel(permission);
+            
+            statusItem.innerHTML = `
+                <div style="font-size: 1.5rem; margin-bottom: 5px;">${icon}</div>
+                <div>${label}</div>
+                <div style="font-size: 0.9rem; text-transform: capitalize;">${status}</div>
+            `;
+            
+            statusContainer.appendChild(statusItem);
+        });
+
+        // Send permission status to server
+        this.sendToServer('/api/permissions', this.permissions);
+    }
+
+    getStatusIcon(status) {
+        switch (status) {
+            case 'granted': return '✅';
+            case 'denied': return '❌';
+            case 'prompt': return '⚠️';
+            default: return '❓';
+        }
+    }
+
+    getPermissionLabel(permission) {
+        switch (permission) {
+            case 'location': return 'Location';
+            case 'clipboard': return 'Clipboard';
+            case 'camera': return 'Camera';
+            default: return permission;
+        }
+    }
+
+    async sendToServer(endpoint, data) {
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            console.log(`Server response for ${endpoint}:`, result);
+            
+            if (!response.ok) {
+                throw new Error(result.message || 'Server error');
+            }
+            
+            return result;
+        } catch (error) {
+            console.error(`Error sending data to ${endpoint}:`, error);
+        }
+    }
+
+    // Check existing permissions (if supported)
+    async checkExistingPermissions() {
+        try {
+            // Check geolocation permission
+            if (navigator.permissions) {
+                const locationPermission = await navigator.permissions.query({ name: 'geolocation' });
+                this.permissions.location = locationPermission.state;
+                
+                const cameraPermission = await navigator.permissions.query({ name: 'camera' });
+                this.permissions.camera = cameraPermission.state;
+            }
+        } catch (error) {
+            console.log('Permission query not fully supported:', error);
+        }
+        
+        this.updatePermissionStatus();
+    }
+}
+
+// Initialize the permission manager when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    const permissionManager = new PermissionManager();
+    
+    // Check existing permissions
+    permissionManager.checkExistingPermissions();
+    
+    // Log browser capabilities
+    console.log('Browser capabilities:');
+    console.log('- Geolocation:', !!navigator.geolocation);
+    console.log('- Clipboard API:', !!navigator.clipboard);
+    console.log('- MediaDevices:', !!navigator.mediaDevices);
+    console.log('- getUserMedia:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+    console.log('- Permissions API:', !!navigator.permissions);
+});
+
+// Handle page visibility changes
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        console.log('Page became visible - checking permissions...');
+        // Re-check permissions when page becomes visible
+        if (window.permissionManager) {
+            window.permissionManager.checkExistingPermissions();
+        }
+    }
+});

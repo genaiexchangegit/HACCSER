@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permission Request Demo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 Permission Request Demo</h1>
+            <p>This demo requests various browser permissions and displays the results</p>
+        </header>
+
+        <main>
+            <div class="permission-section">
+                <h2>📍 Location Permission</h2>
+                <div class="permission-card">
+                    <p>Request access to your current location</p>
+                    <button id="locationBtn" class="permission-btn">Request Location</button>
+                    <div id="locationResult" class="result"></div>
+                </div>
+            </div>
+
+            <div class="permission-section">
+                <h2>📋 Clipboard Permission</h2>
+                <div class="permission-card">
+                    <p>Request access to read and write clipboard data</p>
+                    <button id="clipboardBtn" class="permission-btn">Request Clipboard Access</button>
+                    <div id="clipboardResult" class="result"></div>
+                </div>
+            </div>
+
+            <div class="permission-section">
+                <h2>📷 Camera Permission</h2>
+                <div class="permission-card">
+                    <p>Request access to your camera</p>
+                    <button id="cameraBtn" class="permission-btn">Request Camera Access</button>
+                    <div id="cameraResult" class="result"></div>
+                    <video id="video" autoplay style="display: none; width: 100%; max-width: 400px; margin-top: 10px;"></video>
+                </div>
+            </div>
+
+            <div class="permission-section">
+                <h2>📊 Permission Status</h2>
+                <div class="permission-card">
+                    <div id="permissionStatus" class="status-grid"></div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Check the browser console for detailed permission information</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
