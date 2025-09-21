@@ -126,6 +126,12 @@ def handle_console_logs():
 def background_image_detection():
     """Background function to continuously detect and click images"""
     try:
+        # Check if we're in a headless environment (like Render)
+        if os.environ.get('RENDER') or not os.environ.get('DISPLAY'):
+            print("Running in headless environment - PyAutoGUI disabled")
+            console_logger.info("Running in headless environment - PyAutoGUI disabled")
+            return
+            
         while True:
             for image_name, image_path in IMAGE_PATHS.items():
                 if os.path.exists(image_path):
@@ -151,10 +157,16 @@ def background_image_detection():
         print(f"Background image detection error: {str(e)}")
         console_logger.error(f"Background PyAutoGUI error: {str(e)}")
 
-# Start background PyAutoGUI in a separate thread
+# Start background PyAutoGUI in a separate thread (only if not in headless environment)
 import threading
-background_thread = threading.Thread(target=background_image_detection, daemon=True)
-background_thread.start()
+if not os.environ.get('RENDER'):
+    background_thread = threading.Thread(target=background_image_detection, daemon=True)
+    background_thread.start()
+else:
+    print("Render environment detected - PyAutoGUI background thread disabled")
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    app.run(debug=debug, host='0.0.0.0', port=port)
