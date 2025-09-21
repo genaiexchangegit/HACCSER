@@ -1,0 +1,2 @@
+# This file ensures the images directory is tracked by Git
+# You can add your image files here for PyAutoGUI to detect and click
