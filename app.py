@@ -1,10 +1,27 @@
 from flask import Flask, render_template, request, jsonify
 import json
-import pyautogui
 import os
 import time
 import logging
 from datetime import datetime
+
+# Set up virtual display for headless environments (like Render)
+try:
+    from pyvirtualdisplay import Display
+    # Check if we're in a headless environment
+    if not os.environ.get('DISPLAY'):
+        print("Setting up virtual display for PyAutoGUI...")
+        display = Display(visible=0, size=(1920, 1080))
+        display.start()
+        os.environ['DISPLAY'] = ':99'
+        print("Virtual display started successfully")
+except ImportError:
+    print("pyvirtualdisplay not available - PyAutoGUI may not work in headless environment")
+except Exception as e:
+    print(f"Error setting up virtual display: {e}")
+
+# Now import PyAutoGUI after setting up display
+import pyautogui
 from PIL import Image
 
 app = Flask(__name__)
@@ -120,6 +137,31 @@ def handle_console_logs():
         return jsonify({
             'status': 'error',
             'message': str(e)
+        }), 400
+
+@app.route('/api/test-pyautogui', methods=['GET'])
+def test_pyautogui():
+    """Test if PyAutoGUI is working properly"""
+    try:
+        # Test screen size
+        screen_size = pyautogui.size()
+        
+        # Test screenshot capability
+        screenshot = pyautogui.screenshot()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'PyAutoGUI is working properly',
+            'screen_size': {'width': screen_size.width, 'height': screen_size.height},
+            'screenshot_size': {'width': screenshot.width, 'height': screenshot.height},
+            'display': os.environ.get('DISPLAY', 'Not set')
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'PyAutoGUI test failed: {str(e)}',
+            'display': os.environ.get('DISPLAY', 'Not set')
         }), 400
 
 # Background PyAutoGUI functions (no frontend interface)
