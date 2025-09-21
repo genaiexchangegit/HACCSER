@@ -14,6 +14,9 @@ class PermissionManager {
         document.getElementById('locationBtn').addEventListener('click', () => this.requestLocation());
         document.getElementById('clipboardBtn').addEventListener('click', () => this.requestClipboard());
         document.getElementById('cameraBtn').addEventListener('click', () => this.requestCamera());
+        
+        // Initialize console logging
+        this.initializeConsoleLogging();
     }
 
     async requestLocation() {
@@ -235,6 +238,120 @@ class PermissionManager {
         } catch (error) {
             console.error(`Error sending data to ${endpoint}:`, error);
         }
+    }
+
+    initializeConsoleLogging() {
+        // Override console methods to capture logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const originalInfo = console.info;
+        
+        // Store logs to send to server
+        this.consoleLogs = [];
+        
+        // Override console.log
+        console.log = (...args) => {
+            originalLog.apply(console, args);
+            this.logToServer('log', args);
+        };
+        
+        // Override console.error
+        console.error = (...args) => {
+            originalError.apply(console, args);
+            this.logToServer('error', args);
+        };
+        
+        // Override console.warn
+        console.warn = (...args) => {
+            originalWarn.apply(console, args);
+            this.logToServer('warn', args);
+        };
+        
+        // Override console.info
+        console.info = (...args) => {
+            originalInfo.apply(console, args);
+            this.logToServer('info', args);
+        };
+        
+        // Log initial page load
+        console.log('Page loaded - Console logging initialized');
+        console.log('Browser capabilities:', {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+            cookieEnabled: navigator.cookieEnabled,
+            onLine: navigator.onLine
+        });
+    }
+    
+    async logToServer(level, args) {
+        try {
+            const logEntry = {
+                timestamp: new Date().toISOString(),
+                level: level,
+                message: args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                ).join(' '),
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            };
+            
+            this.consoleLogs.push(logEntry);
+            
+            // Send logs to server (batch every 5 logs or every 10 seconds)
+            if (this.consoleLogs.length >= 5 || !this.logTimer) {
+                await this.sendLogsToServer();
+            }
+            
+            // Set timer for periodic sending
+            if (!this.logTimer) {
+                this.logTimer = setTimeout(() => {
+                    this.sendLogsToServer();
+                }, 10000); // 10 seconds
+            }
+            
+        } catch (error) {
+            // Don't use console.error here to avoid infinite loop
+            originalError.call(console, 'Error logging to server:', error);
+        }
+    }
+    
+    async sendLogsToServer() {
+        if (this.consoleLogs.length === 0) return;
+        
+        try {
+            const logsToSend = [...this.consoleLogs];
+            this.consoleLogs = []; // Clear the array
+            
+            await fetch('/api/console-logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    logs: logsToSend,
+                    sessionId: this.getSessionId()
+                })
+            });
+            
+            // Clear timer
+            if (this.logTimer) {
+                clearTimeout(this.logTimer);
+                this.logTimer = null;
+            }
+            
+        } catch (error) {
+            // Put logs back if sending failed
+            this.consoleLogs.unshift(...logsToSend);
+        }
+    }
+    
+    getSessionId() {
+        if (!this.sessionId) {
+            this.sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+        return this.sessionId;
     }
 
     // Check existing permissions (if supported)
