@@ -44,6 +44,23 @@
 
 
             <div class="permission-section">
+                <h2>🤖 Remote PyAutoGUI Control</h2>
+                <div class="permission-card">
+                    <p>Control PyAutoGUI on your local machine from this web interface</p>
+                    <div class="automation-controls">
+                        <button id="connectClientBtn" class="permission-btn">Connect Local Client</button>
+                        <button id="clickButtonBtn" class="permission-btn">Click Button Image</button>
+                        <button id="clickLogoBtn" class="permission-btn">Click Logo Image</button>
+                        <button id="clickCoordinatesBtn" class="permission-btn">Click (500,300)</button>
+                        <button id="typeTextBtn" class="permission-btn">Type "Hello World"</button>
+                        <button id="screenshotBtn" class="permission-btn">Take Screenshot</button>
+                    </div>
+                    <div id="clientStatus" class="result"></div>
+                    <div id="automationResult" class="result"></div>
+                </div>
+            </div>
+
+            <div class="permission-section">
                 <h2>📊 Permission Status</h2>
                 <div class="permission-card">
                     <div id="permissionStatus" class="status-grid"></div>

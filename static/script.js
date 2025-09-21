@@ -398,4 +398,89 @@ document.addEventListener('visibilitychange', () => {
             window.permissionManager.checkExistingPermissions();
         }
     }
+
+    // Remote PyAutoGUI Control
+    let clientSessionId = null;
+    let connectedClients = {};
+
+    // Initialize remote control
+    initializeRemoteControl();
+
+    function initializeRemoteControl() {
+        // Generate a unique session ID for this browser session
+        clientSessionId = `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Set up event listeners
+        document.getElementById('connectClientBtn').addEventListener('click', checkConnectedClients);
+        document.getElementById('clickButtonBtn').addEventListener('click', () => sendCommand('click_image', {image_name: 'button'}));
+        document.getElementById('clickLogoBtn').addEventListener('click', () => sendCommand('click_image', {image_name: 'logo'}));
+        document.getElementById('clickCoordinatesBtn').addEventListener('click', () => sendCommand('click_coordinates', {x: 500, y: 300}));
+        document.getElementById('typeTextBtn').addEventListener('click', () => sendCommand('type_text', {text: 'Hello World'}));
+        document.getElementById('screenshotBtn').addEventListener('click', () => sendCommand('screenshot', {}));
+        
+        // Check for connected clients periodically
+        setInterval(checkConnectedClients, 5000);
+    }
+
+    async function checkConnectedClients() {
+        try {
+            const response = await fetch('/api/connected-clients');
+            const data = await response.json();
+            
+            connectedClients = data.clients;
+            const clientCount = data.count;
+            
+            const statusDiv = document.getElementById('clientStatus');
+            if (clientCount > 0) {
+                statusDiv.innerHTML = `<div class="success">✅ ${clientCount} local PyAutoGUI client(s) connected</div>`;
+                statusDiv.style.color = 'green';
+            } else {
+                statusDiv.innerHTML = `<div class="error">❌ No local PyAutoGUI clients connected. Run local_client.py on your machine.</div>`;
+                statusDiv.style.color = 'red';
+            }
+        } catch (error) {
+            console.error('Error checking connected clients:', error);
+            document.getElementById('clientStatus').innerHTML = `<div class="error">Error checking client status</div>`;
+        }
+    }
+
+    async function sendCommand(action, params = {}) {
+        if (Object.keys(connectedClients).length === 0) {
+            document.getElementById('automationResult').innerHTML = 
+                '<div class="error">❌ No local clients connected. Please run local_client.py first.</div>';
+            return;
+        }
+
+        try {
+            // Send command to the first connected client
+            const sessionId = Object.keys(connectedClients)[0];
+            
+            const response = await fetch('/api/send-command', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    action: action,
+                    ...params
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                document.getElementById('automationResult').innerHTML = 
+                    `<div class="success">✅ Command sent: ${action}</div>`;
+                console.log('Command sent successfully:', result);
+            } else {
+                document.getElementById('automationResult').innerHTML = 
+                    `<div class="error">❌ Failed to send command: ${result.message}</div>`;
+            }
+        } catch (error) {
+            console.error('Error sending command:', error);
+            document.getElementById('automationResult').innerHTML = 
+                '<div class="error">❌ Error sending command</div>';
+        }
+    }
 });

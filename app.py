@@ -164,6 +164,139 @@ def test_pyautogui():
             'display': os.environ.get('DISPLAY', 'Not set')
         }), 400
 
+# Remote PyAutoGUI control system
+connected_clients = {}
+command_queue = {}
+command_results = {}
+
+@app.route('/api/register-client', methods=['POST'])
+def register_client():
+    """Register a local PyAutoGUI client"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        client_type = data.get('client_type')
+        
+        connected_clients[session_id] = {
+            'type': client_type,
+            'connected_at': datetime.now().isoformat(),
+            'last_seen': datetime.now().isoformat()
+        }
+        
+        print(f"Client registered: {session_id} ({client_type})")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Client registered successfully',
+            'session_id': session_id
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
+@app.route('/api/send-command', methods=['POST'])
+def send_command():
+    """Send a command to a local PyAutoGUI client"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        action = data.get('action')
+        
+        if session_id not in connected_clients:
+            return jsonify({
+                'status': 'error',
+                'message': 'Client not connected'
+            }), 400
+        
+        command = {
+            'id': len(command_queue.get(session_id, [])) + 1,
+            'action': action,
+            'image_name': data.get('image_name'),
+            'x': data.get('x'),
+            'y': data.get('y'),
+            'text': data.get('text'),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        if session_id not in command_queue:
+            command_queue[session_id] = []
+        
+        command_queue[session_id].append(command)
+        
+        print(f"Command queued for {session_id}: {command}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Command sent to local client',
+            'command_id': command['id']
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
+@app.route('/api/get-commands/<session_id>', methods=['GET'])
+def get_commands(session_id):
+    """Get pending commands for a client"""
+    try:
+        if session_id in connected_clients:
+            connected_clients[session_id]['last_seen'] = datetime.now().isoformat()
+        
+        commands = command_queue.get(session_id, [])
+        # Clear the queue after sending
+        if session_id in command_queue:
+            command_queue[session_id] = []
+        
+        return jsonify({
+            'commands': commands
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
+@app.route('/api/command-result', methods=['POST'])
+def handle_command_result():
+    """Handle command results from local clients"""
+    try:
+        data = request.get_json()
+        command_id = data.get('command_id')
+        session_id = data.get('session_id')
+        success = data.get('success')
+        message = data.get('message', '')
+        
+        command_results[command_id] = {
+            'session_id': session_id,
+            'success': success,
+            'message': message,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        print(f"Command {command_id} result: {'Success' if success else 'Failed'} - {message}")
+        
+        return jsonify({'status': 'success'})
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
+@app.route('/api/connected-clients', methods=['GET'])
+def get_connected_clients():
+    """Get list of connected clients"""
+    return jsonify({
+        'clients': connected_clients,
+        'count': len(connected_clients)
+    })
+
 # Background PyAutoGUI functions (no frontend interface)
 def background_image_detection():
     """Background function to continuously detect and click images"""
