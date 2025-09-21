@@ -13,7 +13,7 @@ from PIL import Image
 import threading
 
 # Configuration
-RENDER_APP_URL = "https://your-app-name.onrender.com"  # Replace with your actual Render URL
+RENDER_APP_URL = "https://haccser.onrender.com"  # Replace with your actual Render URL
 LOCAL_IMAGES = {
     'button': 'images/button.png',
     'logo': 'images/logo.png'
